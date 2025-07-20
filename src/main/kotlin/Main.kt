@@ -12,8 +12,13 @@ sealed class Modes(val message: String) {
 }
 
 object NotesApp {
+    private const val CREATE_CHOICE = 1
+    private const val EXIT_CHOICE = 2
+    private const val CHOICE_OFFSET = 3
+
     val archives: MutableList<Archive> = mutableListOf()
-    val notes: MutableList<Note> = mutableListOf()
+    var currentArchive: Archive = Archive()
+    var currentNote: Note = Note()
     val callHistory = ArrayDeque<Notable?>()
     var mode: Modes = ARCHIVE()
     val input = Scanner(System.`in`)
@@ -22,7 +27,7 @@ object NotesApp {
         while (true) {
             when (mode) {
                 is ARCHIVE -> select(archives)
-                is NOTE -> select(notes)
+                is NOTE -> select(currentArchive.notes)
             }
         }
     }
@@ -30,7 +35,7 @@ object NotesApp {
     private fun <T : Notable> select(notables: MutableList<T>) {
         printContents(notables)
         val choice = validateInput(notables.size)
-        handleInput(notables, choice)
+        handleInput(choice)
     }
 
     private fun validateInput(size: Int) : Int {
@@ -39,25 +44,34 @@ object NotesApp {
             if (choice == null) {
                 println("Введите число")
             } else {
-                if (choice < 1 || choice > size + 2) {
+                if (choice < CREATE_CHOICE || choice > size + CHOICE_OFFSET - 1) {
                     println("Такого пункта меню не существует")
-                }
-                else return choice
+                } else return choice
             }
             choice = input.nextLine().toIntOrNull()
         }
     }
 
-    private fun <T : Notable> handleInput(notables: MutableList<T>, choice: Int) {
+    private fun handleInput(choice: Int) {
         when (choice) {
-            1 -> create()
-            2 -> exit()
+            CREATE_CHOICE -> create()
+            EXIT_CHOICE -> exit()
             else -> {
-                val notable = notables[choice - 3]
-
+                when (mode) {
+                    is ARCHIVE -> {
+                        currentArchive = archives[choice - CHOICE_OFFSET]
+                        mode = NOTE()
+                        callHistory.addLast(currentArchive)
+                        select(currentArchive.notes)
+                    }
+                    is NOTE -> {
+                        callHistory.addLast(currentNote)
+                        currentNote = currentArchive.notes[choice - CHOICE_OFFSET]
+                        println("Содержимое заметки: ${currentNote.contents}")
+                    }
+                }
             }
         }
-
     }
 
     private fun exit() {
@@ -66,14 +80,16 @@ object NotesApp {
             println("Завершение программы")
             exitProcess(0)
         }
-
+        mode = if (previousState is Archive) {
+            ARCHIVE()
+        } else NOTE()
     }
 
     private fun <T : Notable> printContents(contents: MutableList<T>) {
         println("Выберите или создайте ${mode.message}:")
         println("1. Создать ${mode.message}\n2. Выход")
-        for (i in 0..contents.size-1) {
-            println("${i+3}. ${contents[i].name}")
+        for (i in 0..contents.size - 1) {
+            println("${i + CHOICE_OFFSET}. ${contents[i].name}")
         }
     }
 
@@ -83,7 +99,6 @@ object NotesApp {
         return when (mode) {
             is ARCHIVE -> {
                 val archive = Archive(title)
-                callHistory.addLast(archive)
                 archives.add(archive)
                 archive
             }
@@ -91,7 +106,7 @@ object NotesApp {
                 print("Введите содержимое файла: ")
                 val contents = input.nextLine()
                 val note = Note(title,contents)
-                callHistory.addLast(note)
+                currentArchive.notes.add(note)
                 note
             }
         }
