@@ -1,4 +1,5 @@
 import Modes.*
+import Modes.ARCHIVES.archives
 import java.util.Scanner
 import kotlin.system.exitProcess
 
@@ -8,12 +9,15 @@ fun main() {
 
 sealed class Modes(val message: String) {
     var currentArchive: Archive = Archive()
+    abstract val selectParameter: MutableList<out Notable>
     object ARCHIVES : Modes("архив") {
         val archives: MutableList<Archive> = mutableListOf()
+        override val selectParameter = archives
     }
     object NOTES : Modes("заметку") {
         val notes: MutableList<Note> = mutableListOf()
         var currentNote: Note = Note()
+        override val selectParameter = currentArchive.notes
     }
 }
 
@@ -22,19 +26,13 @@ object NotesApp {
     private const val EXIT_CHOICE = 2
     private const val CHOICE_OFFSET = 3
 
-    val archives: MutableList<Archive> = mutableListOf()
-    var currentArchive: Archive = Archive()
-    var currentNote: Note = Note()
     val callHistory = ArrayDeque<Notable?>()
     var mode: Modes = ARCHIVES
     val input = Scanner(System.`in`)
     fun start() {
         println("Добро пожаловать в заметки!")
         while (true) {
-            when (mode) {
-                is ARCHIVES -> select(archives)
-                is NOTES -> select(currentArchive.notes)
-            }
+            select(mode.selectParameter)
         }
     }
 
@@ -65,14 +63,14 @@ object NotesApp {
             else -> {
                 when (mode) {
                     is ARCHIVES -> {
-                        currentArchive = archives[choice - CHOICE_OFFSET]
+                        mode.currentArchive = archives[choice - CHOICE_OFFSET]
                         mode = NOTES
-                        callHistory.addLast(currentArchive)
-                        select(currentArchive.notes)
+                        callHistory.addLast(mode.currentArchive)
+                        select(mode.selectParameter)
                     }
                     is NOTES -> {
-                        currentNote = currentArchive.notes[choice - CHOICE_OFFSET]
-                        println("Содержимое заметки: ${currentNote.contents}")
+                        (mode as NOTES).currentNote = mode.currentArchive.notes[choice - CHOICE_OFFSET]
+                        println("Содержимое заметки: ${(mode as NOTES).currentNote.contents}")
                     }
                 }
             }
@@ -111,13 +109,13 @@ object NotesApp {
                 archive
             }
             is NOTES -> {
-                if (isDuplicate(title, currentArchive.notes)) {
+                if (isDuplicate(title, mode.currentArchive.notes)) {
                     return null
                 }
                 print("Введите содержимое файла: ")
                 val contents = input.nextLine()
                 val note = Note(title,contents)
-                currentArchive.notes.add(note)
+                mode.currentArchive.notes.add(note)
                 note
             }
         }
