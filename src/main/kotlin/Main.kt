@@ -1,5 +1,8 @@
 import Modes.ARCHIVES
 import Modes.NOTES
+import NotesApp.callHistory
+import NotesApp.mode
+import NotesApp.select
 import java.util.Scanner
 import kotlin.system.exitProcess
 
@@ -9,23 +12,51 @@ fun main() {
 
 sealed class Modes(val message: String) {
     companion object {
-        var currentArchive: Int = 0
+        var currentArchiveIndex: Int = 0
         val archives: MutableList<Archive> = mutableListOf()
     }
     abstract val selectParameter: MutableList<out Notable>
+    abstract val duplicatable: MutableList<out Notable>
+    abstract fun handleModeInput(choice: Int)
+    abstract fun createObj() : MutableList<out Notable>
+
     object ARCHIVES : Modes("архив") {
         override val selectParameter: MutableList<Archive>
             get() {
                 return archives
             }
+        override val duplicatable
+            get() = archives
+
+        override fun handleModeInput(choice: Int) {
+            currentArchiveIndex = choice
+            mode = NOTES
+            callHistory.addLast(archives[currentArchiveIndex])
+            select(archives[currentArchiveIndex].notes)
+        }
+
+        override fun createObj(): MutableList<out Notable> {
+            TODO("Not yet implemented")
+        }
     }
+
     object NOTES : Modes("заметку") {
-        val notes: MutableList<Note> = mutableListOf()
         var currentNote: Note = Note()
         override val selectParameter: MutableList<Note>
             get() {
-                return archives[currentArchive].notes
+                return archives[currentArchiveIndex].notes
             }
+        override val duplicatable: MutableList<out Notable>
+            get() = archives[currentArchiveIndex].notes
+
+        override fun handleModeInput(choice: Int) {
+            (mode as NOTES).currentNote = archives[currentArchiveIndex].notes[choice]
+            println("Содержимое заметки: ${(mode as NOTES).currentNote.contents}")
+        }
+
+        override fun createObj(): MutableList<out Notable> {
+            TODO("Not yet implemented")
+        }
     }
 }
 
@@ -44,7 +75,7 @@ object NotesApp {
         }
     }
 
-    private fun <T : Notable> select(notables: MutableList<T>) {
+    fun <T : Notable> select(notables: MutableList<T>) {
         printContents(notables)
         val choice = validateInput(notables.size)
         handleInput(choice)
@@ -69,20 +100,7 @@ object NotesApp {
             CREATE_CHOICE -> create()
             EXIT_CHOICE -> exit()
             else -> {
-                when (mode) {
-                    is ARCHIVES -> {
-                        println(Modes.archives)
-                        
-                        Modes.currentArchive = choice - CHOICE_OFFSET
-                        mode = NOTES
-                        callHistory.addLast(Modes.archives[Modes.currentArchive])
-                        select(Modes.archives[Modes.currentArchive].notes)
-                    }
-                    is NOTES -> {
-                        (mode as NOTES).currentNote = Modes.archives[Modes.currentArchive].notes[choice - CHOICE_OFFSET]
-                        println("Содержимое заметки: ${(mode as NOTES).currentNote.contents}")
-                    }
-                }
+                mode.handleModeInput(choice - CHOICE_OFFSET)
             }
         }
     }
@@ -106,30 +124,41 @@ object NotesApp {
         }
     }
 
-    private fun create() : Notable? {
+    private fun create() {
         print("Введите название: ")
         val title = input.nextLine()
-        return when (mode) {
+        if (checkIfEmpty(title)) {
+            return
+        }
+        when (mode) {
             is ARCHIVES -> {
-                val archive = Archive(title)
                 if (isDuplicate(title, Modes.archives)) {
-                    return null
+                    return
                 }
+                val archive = Archive(title)
                 Modes.archives.add(archive)
-                archive
             }
             is NOTES -> {
-                if (isDuplicate(title, Modes.archives[Modes.currentArchive].notes)) {
-                    return null
+                if (isDuplicate(title, Modes.archives[Modes.currentArchiveIndex].notes)) {
+                    return
                 }
                 print("Введите содержимое файла: ")
-                val contents = input.nextLine()
-                val note = Note(title,contents)
-                Modes.archives[Modes.currentArchive].notes.add(note)
-                println(Modes.archives)
-                note
+                var contents = input.nextLine()
+                if (checkIfEmpty(contents)) {
+                    return
+                }
+                val note = Note(title, contents)
+                Modes.archives[Modes.currentArchiveIndex].notes.add(note)
             }
         }
+    }
+
+    private fun checkIfEmpty(contents: String) : Boolean {
+        if (contents.isEmpty()) {
+            println("Содержание не может быть пустым")
+            return true
+        }
+        return false
     }
 
     private fun <T : Notable> isDuplicate(title: String, notables: MutableList<T>) : Boolean {
