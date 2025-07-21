@@ -7,8 +7,14 @@ fun main() {
 }
 
 sealed class Modes(val message: String) {
-    class ARCHIVE : Modes("архив")
-    class NOTE : Modes("заметку")
+    var currentArchive: Archive = Archive()
+    object ARCHIVES : Modes("архив") {
+        val archives: MutableList<Archive> = mutableListOf()
+    }
+    object NOTES : Modes("заметку") {
+        val notes: MutableList<Note> = mutableListOf()
+        var currentNote: Note = Note()
+    }
 }
 
 object NotesApp {
@@ -20,14 +26,14 @@ object NotesApp {
     var currentArchive: Archive = Archive()
     var currentNote: Note = Note()
     val callHistory = ArrayDeque<Notable?>()
-    var mode: Modes = ARCHIVE()
+    var mode: Modes = ARCHIVES
     val input = Scanner(System.`in`)
     fun start() {
         println("Добро пожаловать в заметки!")
         while (true) {
             when (mode) {
-                is ARCHIVE -> select(archives)
-                is NOTE -> select(currentArchive.notes)
+                is ARCHIVES -> select(archives)
+                is NOTES -> select(currentArchive.notes)
             }
         }
     }
@@ -58,14 +64,13 @@ object NotesApp {
             EXIT_CHOICE -> exit()
             else -> {
                 when (mode) {
-                    is ARCHIVE -> {
+                    is ARCHIVES -> {
                         currentArchive = archives[choice - CHOICE_OFFSET]
-                        mode = NOTE()
+                        mode = NOTES
                         callHistory.addLast(currentArchive)
                         select(currentArchive.notes)
                     }
-                    is NOTE -> {
-                        //callHistory.addLast(currentNote)
+                    is NOTES -> {
                         currentNote = currentArchive.notes[choice - CHOICE_OFFSET]
                         println("Содержимое заметки: ${currentNote.contents}")
                     }
@@ -81,8 +86,8 @@ object NotesApp {
             exitProcess(0)
         }
         mode = if (previousState is Archive) {
-            ARCHIVE()
-        } else NOTE()
+            ARCHIVES
+        } else NOTES
     }
 
     private fun <T : Notable> printContents(contents: MutableList<T>) {
@@ -97,7 +102,7 @@ object NotesApp {
         print("Введите название: ")
         val title = input.nextLine()
         return when (mode) {
-            is ARCHIVE -> {
+            is ARCHIVES -> {
                 val archive = Archive(title)
                 if (isDuplicate(title, archives)) {
                     return null
@@ -105,7 +110,7 @@ object NotesApp {
                 archives.add(archive)
                 archive
             }
-            is NOTE -> {
+            is NOTES -> {
                 if (isDuplicate(title, currentArchive.notes)) {
                     return null
                 }
