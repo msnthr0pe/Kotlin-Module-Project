@@ -65,7 +65,7 @@ object NotesApp {
                         select(currentArchive.notes)
                     }
                     is NOTE -> {
-                        callHistory.addLast(currentNote)
+                        //callHistory.addLast(currentNote)
                         currentNote = currentArchive.notes[choice - CHOICE_OFFSET]
                         println("Содержимое заметки: ${currentNote.contents}")
                     }
@@ -93,16 +93,22 @@ object NotesApp {
         }
     }
 
-    private fun create() : Notable {
+    private fun create() : Notable? {
         print("Введите название: ")
         val title = input.nextLine()
         return when (mode) {
             is ARCHIVE -> {
                 val archive = Archive(title)
+                if (isDuplicate(title, archives)) {
+                    return null
+                }
                 archives.add(archive)
                 archive
             }
             is NOTE -> {
+                if (isDuplicate(title, currentArchive.notes)) {
+                    return null
+                }
                 print("Введите содержимое файла: ")
                 val contents = input.nextLine()
                 val note = Note(title,contents)
@@ -110,5 +116,15 @@ object NotesApp {
                 note
             }
         }
+    }
+
+    private fun <T : Notable> isDuplicate(title: String, notables: MutableList<T>) : Boolean {
+        for (notable in notables) {
+            if (title == notable.name) {
+                println("Такое название уже существует")
+                return true
+            }
+        }
+        return false
     }
 }
