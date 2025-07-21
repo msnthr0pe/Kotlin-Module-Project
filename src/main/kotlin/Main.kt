@@ -2,7 +2,7 @@ import Modes.*
 import java.util.Scanner
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) {
+fun main() {
     NotesApp.start()
 }
 
