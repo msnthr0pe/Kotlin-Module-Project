@@ -1,5 +1,5 @@
-import Modes.*
-import Modes.ARCHIVES.archives
+import Modes.ARCHIVES
+import Modes.NOTES
 import java.util.Scanner
 import kotlin.system.exitProcess
 
@@ -8,16 +8,24 @@ fun main() {
 }
 
 sealed class Modes(val message: String) {
-    var currentArchive: Archive = Archive()
+    companion object {
+        var currentArchive: Int = 0
+        val archives: MutableList<Archive> = mutableListOf()
+    }
     abstract val selectParameter: MutableList<out Notable>
     object ARCHIVES : Modes("архив") {
-        val archives: MutableList<Archive> = mutableListOf()
-        override val selectParameter = archives
+        override val selectParameter: MutableList<Archive>
+            get() {
+                return archives
+            }
     }
     object NOTES : Modes("заметку") {
         val notes: MutableList<Note> = mutableListOf()
         var currentNote: Note = Note()
-        override val selectParameter = currentArchive.notes
+        override val selectParameter: MutableList<Note>
+            get() {
+                return archives[currentArchive].notes
+            }
     }
 }
 
@@ -63,13 +71,15 @@ object NotesApp {
             else -> {
                 when (mode) {
                     is ARCHIVES -> {
-                        mode.currentArchive = archives[choice - CHOICE_OFFSET]
+                        println(Modes.archives)
+                        
+                        Modes.currentArchive = choice - CHOICE_OFFSET
                         mode = NOTES
-                        callHistory.addLast(mode.currentArchive)
-                        select(mode.selectParameter)
+                        callHistory.addLast(Modes.archives[Modes.currentArchive])
+                        select(Modes.archives[Modes.currentArchive].notes)
                     }
                     is NOTES -> {
-                        (mode as NOTES).currentNote = mode.currentArchive.notes[choice - CHOICE_OFFSET]
+                        (mode as NOTES).currentNote = Modes.archives[Modes.currentArchive].notes[choice - CHOICE_OFFSET]
                         println("Содержимое заметки: ${(mode as NOTES).currentNote.contents}")
                     }
                 }
@@ -102,20 +112,21 @@ object NotesApp {
         return when (mode) {
             is ARCHIVES -> {
                 val archive = Archive(title)
-                if (isDuplicate(title, archives)) {
+                if (isDuplicate(title, Modes.archives)) {
                     return null
                 }
-                archives.add(archive)
+                Modes.archives.add(archive)
                 archive
             }
             is NOTES -> {
-                if (isDuplicate(title, mode.currentArchive.notes)) {
+                if (isDuplicate(title, Modes.archives[Modes.currentArchive].notes)) {
                     return null
                 }
                 print("Введите содержимое файла: ")
                 val contents = input.nextLine()
                 val note = Note(title,contents)
-                mode.currentArchive.notes.add(note)
+                Modes.archives[Modes.currentArchive].notes.add(note)
+                println(Modes.archives)
                 note
             }
         }
